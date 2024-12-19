@@ -13,7 +13,7 @@ SUPERVISOR_DATA=/mnt/data/supervisor
 SUPERVISOR_STARTUP_MARKER="/run/supervisor/startup-marker"
 SUPERVISOR_CIDFILE="${SUPERVISOR_DATA}/hassio_supervisor.cid"
 SUPERVISOR_STARTSCRIPT_VERSION="/mnt/data/.haos-supervisor-version"
-SUPERVISOR_IMAGE="ghcr.io/home-assistant/${SUPERVISOR_ARCH}-hassio-supervisor"
+SUPERVISOR_IMAGE="ghcr.io/jethub-homeassistant/${SUPERVISOR_ARCH}-hassio-supervisor"
 
 SUPERVISOR_IMAGE_ID=$(docker images --no-trunc --filter "reference=${SUPERVISOR_IMAGE}:latest" --format "{{.ID}}" || echo "")
 SUPERVISOR_CONTAINER_ID=$(docker inspect --format='{{.Image}}' hassio_supervisor || echo "")
@@ -52,7 +52,7 @@ if [ -z "${SUPERVISOR_IMAGE_ID}" ]; then
     # wipe this can race with time synchronization (TLS fails until the
     # clock is correct) or run before the network is fully up.
     if [ "${SUPERVISOR_VERSION}" = "stable" ]; then
-        STABLE_JSON="$(curl -fSs --retry 5 --retry-delay 10 --retry-all-errors --max-time 30 --location https://version.home-assistant.io/stable.json)"
+        STABLE_JSON="$(curl -fSs --retry 5 --retry-delay 10 --retry-all-errors --max-time 30 --location https://haversion.jethome.ru/stable.json)"
         SUPERVISOR_VERSION="$(printf '%s' "${STABLE_JSON}" | jq -e -r '.supervisor')"
     fi
 
