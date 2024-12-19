@@ -1,0 +1,10 @@
+# The USB Wi-Fi adapter of the JetHub boards is named after the USB port it
+# sits in (wlu1u1u2i2), so it changes when the adapter is moved. Give it a
+# stable name instead. Not wlan0: that namespace belongs to the kernel, and a
+# second adapter would race for it.
+[Match]
+Type=wlan
+Driver=rtl8821cu
+
+[Link]
+Name=wifi0
