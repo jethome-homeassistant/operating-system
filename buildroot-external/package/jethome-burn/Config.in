@@ -1,0 +1,11 @@
+config BR2_PACKAGE_JETHOME_BURN
+	 bool "jethome-burn"
+	 help
+	   This package installs the jethome-tools tree, which the post-image
+	   step uses to build Amlogic USB-burn images.
+
+	   The board is selected by BURN_BOARD in the board meta file
+	   not here, so that the burn board name has a
+	   single source of truth next to BOARD_ID.
+
+	   https://github.com/jethome-iot/jethome-tools
