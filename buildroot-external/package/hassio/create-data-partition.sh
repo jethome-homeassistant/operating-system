@@ -9,11 +9,11 @@ docker_version=$4
 data_img="${dst_dir}/data.ext4"
 data_dir="${build_dir}/data"
 
-APPARMOR_URL="https://version.home-assistant.io/apparmor_${channel}.txt"
+APPARMOR_URL="https://haversion.jethome.com/apparmor.txt"
 
 # Make image
 rm -f "${data_img}"
-truncate --size="1280M" "${data_img}"
+truncate --size="6000M" "${data_img}"
 mkfs.ext4 -L "hassos-data" -E lazy_itable_init=0,lazy_journal_init=0 "${data_img}"
 
 # Mount / init file structs
