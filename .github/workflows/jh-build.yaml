@@ -23,7 +23,7 @@ env:
 jobs:
   prepare:
     name: Prepare build
-    runs-on: ubuntu-22.04
+    runs-on: ${{ vars.RUNNER }}
     permissions:
       contents: read
       pull-requests: read
@@ -161,7 +161,7 @@ jobs:
     strategy:
       fail-fast: ${{ github.event_name == 'release' }}
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
-    runs-on: self-hosted
+    runs-on: ${{ vars.RUNNER }}
 
     steps:
       - name: Checkout source
@@ -316,7 +316,7 @@ jobs:
     name: Bump ${{ needs.prepare.outputs.channel }} channel version
     if: ${{ github.repository == 'jethome-homeassistant/operating-system' && needs.prepare.outputs.publish_build == 'true' }}
     needs: [ build, prepare ]
-    runs-on: ubuntu-22.04
+    runs-on: ${{ vars.RUNNER }}
 
     steps:
     - name: Checkout source
