@@ -33,6 +33,7 @@ jobs:
       version_main: ${{ steps.version.outputs.version_main }}
       version_full: ${{ steps.version.outputs.version_full }}
       channel: ${{ steps.channel.outputs.channel }}
+      releasetype: ${{ steps.channel.outputs.releasetype }}
       matrix: ${{ steps.generate_matrix.outputs.result }}
       build_container_image: ghcr.io/${{ github.repository_owner }}/haos-builder@${{ steps.build_haos_builder.outputs.digest }}
       publish_build: ${{ steps.check_publish.outputs.publish_build }}
@@ -106,11 +107,14 @@ jobs:
           if [[ "${{ github.event_name }}" == "release" ]]; then
             if [[ "${{ github.event.release.prerelease }}" == "true" ]]; then
               echo "channel=beta" >> "$GITHUB_OUTPUT"
+              echo "releasetype=release" >> "$GITHUB_OUTPUT"
             else
               echo "channel=stable" >> "$GITHUB_OUTPUT"
+              echo "releasetype=release" >> "$GITHUB_OUTPUT"
             fi
           else
             echo "channel=dev" >> "$GITHUB_OUTPUT"
+            echo "releasetype=nightly" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create build matrix
@@ -257,6 +261,66 @@ jobs:
             make -C buildroot O="/build/output" BR2_EXTERNAL="/build/buildroot-external" \
             BR2_CHECK_DOTCONFIG_OPTS="--github-format --strip-path-prefix=/build/" linux-check-dotconfig
 
+
+      - name: Sign images
+        env:
+          GPG_PASSPHRASE1: ${{ secrets.GPG_PASSPHRASE1 }}
+        if: env.GPG_PASSPHRASE1 != null
+        run: |
+          for image in output/images/haos_${{ matrix.board.id }}-* ; do
+            echo $GPG_PASSPHRASE1 | gpg --passphrase-fd 0 --armor --detach-sign --pinentry-mode loopback --batch --yes $image
+          done
+
+      - name: Deploy to fw.jethome.ru (rauc)
+        id: upload-fw-rauc
+        if: github.ref == 'refs/heads/master' || github.event_name == 'release'
+        uses: jethome-iot/actions/firmware-upload@master
+        with:
+          url: https://fw.jethome.ru
+          fullslug: "JetHome.${{ matrix.board.family }}.jhaos.${{ needs.prepare.outputs.releasetype }}"
+          image_type: "raucb"
+          firmware_file: "output/images/haos_${{ matrix.board.id }}-${{ needs.prepare.outputs.version_full }}.raucb"
+          hashpgp_file: "output/images/haos_${{ matrix.board.id }}-${{ needs.prepare.outputs.version_full }}.raucb.asc"
+          version: "${{ needs.prepare.outputs.version_full }}"
+          force_overwrite: "true"
+          generatefirmwareslot: "true"
+          update_latest: "true"
+          supported_devices: "${{ matrix.board.supported }}"
+          FWUPLOAD: ${{ secrets.FWUPLOAD }}
+
+      - name: Deploy to fw.jethome.ru (sdcard)
+        id: upload-fw-sdcard
+        if: github.ref == 'refs/heads/master' || github.event_name == 'release'
+        uses: jethome-iot/actions/firmware-upload@master
+        with:
+          url: https://fw.jethome.ru
+          fullslug: "JetHome.${{ matrix.board.family }}.jhaos.${{ needs.prepare.outputs.releasetype }}"
+          image_type: "sdcard"
+          firmware_file: "output/images/haos_${{ matrix.board.id }}-${{ needs.prepare.outputs.version_full }}.img.xz"
+          hashpgp_file: "output/images/haos_${{ matrix.board.id }}-${{ needs.prepare.outputs.version_full }}.img.asc"
+          version: "${{ needs.prepare.outputs.version_full }}"
+          force_overwrite: "true"
+          generatefirmwareslot: "true"
+          update_latest: "true"
+          supported_devices: "${{ matrix.board.supported }}"
+          FWUPLOAD: "${{ secrets.FWUPLOAD }}"
+
+      - name: Deploy to fw.jethome.ru (burn)
+        id: upload-fw-burn
+        if: github.ref == 'refs/heads/master' || github.event_name == 'release'
+        uses: jethome-iot/actions/firmware-upload@master
+        with:
+          url: https://fw.jethome.ru
+          fullslug: "JetHome.${{ matrix.board.family }}.jhaos.${{ needs.prepare.outputs.releasetype }}"
+          image_type: "burn"
+          firmware_file: "output/images/haos_${{ matrix.board.id }}-${{ needs.prepare.outputs.version_full }}_burn.img"
+          hashpgp_file: "output/images/haos_${{ matrix.board.id }}-${{ needs.prepare.outputs.version_full }}_burn.img.asc"
+          version: "${{ needs.prepare.outputs.version_full }}"
+          force_overwrite: "true"
+          generatefirmwareslot: "true"
+          update_latest: "true"
+          supported_devices: "${{ matrix.board.supported }}"
+          FWUPLOAD: ${{ secrets.FWUPLOAD }}
 
       - name: Upload release assets
         if: ${{ github.event_name == 'release' }}
