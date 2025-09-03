@@ -6,6 +6,7 @@
     "runner": "self-hosted",
     "label": "board/jethub",
     "architecture": "aarch64",
+    "family": "j200",
     "supported": "d2"
   },
   {
@@ -15,6 +16,7 @@
     "runner": "self-hosted",
     "label": "board/jethub",
     "architecture": "aarch64",
+    "family": "j100",
     "supported": "d1,d1p"
   },
   {
@@ -24,6 +26,7 @@
     "runner": "self-hosted",
     "label": "board/jethub",
     "architecture": "aarch64",
+    "family": "j80",
     "supported": "h1"
   }
 ]
