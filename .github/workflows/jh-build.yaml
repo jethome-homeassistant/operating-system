@@ -117,6 +117,11 @@ jobs:
             echo "releasetype=nightly" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Show version info
+        run: |
+          echo "Version full is ${{ steps.version.outputs.version_full }}"
+          echo "Channel is ${{ steps.channel.outputs.channel }}, releasetype is ${{ steps.channel.outputs.releasetype }}"
+
       - name: Create build matrix
         uses: actions/github-script@v7
         id: generate_matrix
@@ -199,6 +204,11 @@ jobs:
           echo -e "-----BEGIN CERTIFICATE-----\n${RAUC_CERTIFICATE}\n-----END CERTIFICATE-----" > cert.pem
           echo -e "-----BEGIN PRIVATE KEY-----\n${RAUC_PRIVATE_KEY}\n-----END PRIVATE KEY-----" > key.pem
 
+      - name: Add pgp keys
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+
       - name: Free space on build drive
         run: |
           # Inspired by https://github.com/easimon/maximize-build-space/blob/v7/action.yml
@@ -261,7 +271,6 @@ jobs:
             make -C buildroot O="/build/output" BR2_EXTERNAL="/build/buildroot-external" \
             BR2_CHECK_DOTCONFIG_OPTS="--github-format --strip-path-prefix=/build/" linux-check-dotconfig
 
-
       - name: Sign images
         env:
           GPG_PASSPHRASE1: ${{ secrets.GPG_PASSPHRASE1 }}
@@ -273,7 +282,7 @@ jobs:
 
       - name: Deploy to fw.jethome.ru (rauc)
         id: upload-fw-rauc
-        if: github.ref == 'refs/heads/master' || github.event_name == 'release'
+        if: github.event_name == 'release' && github.event.release.prerelease != true || github.ref == 'refs/heads/master'
         uses: jethome-iot/actions/firmware-upload@master
         with:
           url: https://fw.jethome.ru
@@ -290,7 +299,7 @@ jobs:
 
       - name: Deploy to fw.jethome.ru (sdcard)
         id: upload-fw-sdcard
-        if: github.ref == 'refs/heads/master' || github.event_name == 'release'
+        if: github.event_name == 'release' && github.event.release.prerelease != true || github.ref == 'refs/heads/master'
         uses: jethome-iot/actions/firmware-upload@master
         with:
           url: https://fw.jethome.ru
@@ -307,7 +316,7 @@ jobs:
 
       - name: Deploy to fw.jethome.ru (burn)
         id: upload-fw-burn
-        if: github.ref == 'refs/heads/master' || github.event_name == 'release'
+        if: github.event_name == 'release' && github.event.release.prerelease != true || github.ref == 'refs/heads/master'
         uses: jethome-iot/actions/firmware-upload@master
         with:
           url: https://fw.jethome.ru
