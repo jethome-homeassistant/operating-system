@@ -34,10 +34,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         cpio \
         e2fsprogs \
         file \
+        fdisk \
         git \
         graphviz \
         help2man \
         jq \
+        libarchive-zip-perl \
         make \
         ncurses-dev \
         openssh-client \
@@ -55,6 +57,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         unzip \
         vim \
         wget \
+        xxd \
         zip \
     && rm -rf /var/lib/apt/lists/*
 
