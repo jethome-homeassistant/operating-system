@@ -6,6 +6,7 @@ DEFCONFIG_DIR = $(BUILDROOT_EXTERNAL)/configs
 
 TARGETS := $(notdir $(patsubst %_defconfig,%,$(wildcard $(DEFCONFIG_DIR)/*_defconfig)))
 TARGETS_CONFIG := $(notdir $(patsubst %_defconfig,%-config,$(wildcard $(DEFCONFIG_DIR)/*_defconfig)))
+CPU_CORES := $(shell nproc)
 
 # Set O variable if not already done on the command line
 ifneq ("$(origin O)", "command line")
