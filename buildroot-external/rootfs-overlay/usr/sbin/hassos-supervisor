@@ -51,8 +51,8 @@ SUPERVISOR_IMAGE_TPL="$(jq -r '.image.supervisor // empty' "${SUPERVISOR_DATA}/u
 # information.
 if [ -z "${SUPERVISOR_VERSION}" ] || [ "${SUPERVISOR_VERSION}" = "$SUPERVISOR_CHANNEL" ] || [ -z "${SUPERVISOR_IMAGE_TPL}" ]; then
     json="$(curl -fsSL "${URL_HASSIO_VERSION}" || echo "{}")"
-    SUPERVISOR_VERSION="$(printf '%s' "$json" | jq -er '.supervisor')"
-    SUPERVISOR_IMAGE_TPL="$(printf '%s' "$json" | jq -er '.images.supervisor')"
+    SUPERVISOR_VERSION="$(printf '%s' "$json" | jq -er '.supervisor' || echo '')"
+    SUPERVISOR_IMAGE_TPL="$(printf '%s' "$json" | jq -er '.images.supervisor' || echo '')"
 fi
 SUPERVISOR_IMAGE="$(printf '%s' "$SUPERVISOR_IMAGE_TPL" | sed "s|{arch}|${SUPERVISOR_ARCH}|g")"
 
@@ -94,6 +94,14 @@ if [ -n "${SUPERVISOR_CONTAINER_ID}" ]; then
         SUPERVISOR_CONTAINER_ID=""
     fi
 fi
+
+    if [ -z "${SUPERVISOR_IMAGE}" ] || [ "${SUPERVISOR_IMAGE}" == "null" ]; then
+        SUPERVISOR_IMAGE=$(docker images --format '{{.Repository}}:{{.Tag}}' \
+            | grep -E '^.+:latest$' \
+            | grep 'hassio-supervisor' \
+            | head -n1 \
+            | sed 's/:latest$//')
+    fi
 
 # If Supervisor container is missing, create it
 if [ -z "${SUPERVISOR_CONTAINER_ID}" ]; then
