@@ -1,0 +1,6 @@
+[Unit]
+Description=Check that hassos-supervisor.service is alive
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/check-supervisor.sh
