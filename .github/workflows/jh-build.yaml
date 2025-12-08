@@ -66,7 +66,7 @@ jobs:
           PUBLISH_BUILD: ${{ steps.check_publish.outputs.publish_build }}
         run: |
           version_dev="dev$(date --utc +'%Y%m%d')"
-          if [ "${{ env.PUBLISH_BUILD }}" != "true" ]; then
+          if [ "${{ env.PUBLISH_BUILD }}" != "true" ] || [ "${{ github.ref }}" != "refs/heads/dev" ]; then
             version_dev="dev$(date +%s)"
           fi
           echo "Development version \"${version_dev}\""
@@ -187,7 +187,7 @@ jobs:
 
       - name: Install AWS CLI
         if: 0 #${{ github.event_name != 'release' && needs.prepare.outputs.publish_build == 'true' }}
-        run: pip install awscli
+        run: pip install 'awscli<1.37.0'
 
       - name: Set version suffix
         if: ${{ github.event_name != 'release' }}
@@ -205,13 +205,14 @@ jobs:
           echo -e "-----BEGIN PRIVATE KEY-----\n${RAUC_PRIVATE_KEY}\n-----END PRIVATE KEY-----" > key.pem
 
       - name: Add pgp keys
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: crazy-max/ghaction-import-gpg@v6
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
 
       - name: Free space on build drive
         run: |
           # Inspired by https://github.com/easimon/maximize-build-space/blob/v7/action.yml
+          df -h
           sudo rm -rf /usr/local/lib/android/sdk/ndk
           sudo rm -rf /opt/hostedtoolcache/CodeQL
           sudo mkdir -p /mnt/cache/dl
@@ -222,7 +223,7 @@ jobs:
           WORKSPACE_OWNER="$(stat -c '%U:%G' "${GITHUB_WORKSPACE}")"
           # output directory is symlinked for easier access from workspace
           # but for build container it must be mounted as a volume
-          #sudo ln -sf /mnt/output "${GITHUB_WORKSPACE}/output"
+          sudo ln -sf /mnt/output "${GITHUB_WORKSPACE}/output"
           sudo chown -R "${WORKSPACE_OWNER}" /mnt/cache
           sudo chown -R "${WORKSPACE_OWNER}" /mnt/output
           df -h
@@ -241,6 +242,7 @@ jobs:
             -e BUILDER_UID="${BUILDER_UID}" -e BUILDER_GID="${BUILDER_GID}" \
             -v "${GITHUB_WORKSPACE}:/build" \
             -v "/mnt/cache:/cache" \
+            -v "/mnt/output:/build/output" \
             ${{ needs.prepare.outputs.build_container_image }} \
             make BUILDDIR=/build ${{ matrix.board.defconfig }}
 
@@ -250,7 +252,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ github.event_name != 'release' && needs.prepare.outputs.publish_build == 'true' }}
-        uses: burnett01/rsync-deployments@7.1.0
+        uses: burnett01/rsync-deployments@v8
         with:
           rsh: -q
           switches: -aW --include="haos_*" --exclude="*"
@@ -267,6 +269,7 @@ jobs:
             -e BUILDER_UID="$(id -u)" -e BUILDER_GID="$(id -g)" \
             -v "${GITHUB_WORKSPACE}:/build" \
             -v "/mnt/cache:/cache" \
+            -v "/mnt/output:/build/output" \
             ${{ needs.prepare.outputs.build_container_image }} \
             make -C buildroot O="/build/output" BR2_EXTERNAL="/build/buildroot-external" \
             BR2_CHECK_DOTCONFIG_OPTS="--github-format --strip-path-prefix=/build/" linux-check-dotconfig
