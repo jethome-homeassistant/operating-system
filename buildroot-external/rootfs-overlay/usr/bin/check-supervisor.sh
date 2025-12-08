@@ -6,6 +6,6 @@
 SERVICE=hassos-supervisor.service
 
 if ! systemctl is-active --quiet "$SERVICE"; then
-    echo "[check-hassos-supervisor] $SERVICE is not active, rebooting" >&2
+    echo "[check-hassos-supervisor] $SERVICE is not active, rebooting"
     reboot -f
 fi
