@@ -19,13 +19,13 @@ index 111111111111..222222222222 100644
  #include <linux/regmap.h>
  #include <linux/seq_file.h>
 +#include <linux/of_irq.h>
- 
+
  #include "../core.h"
  #include "../pinctrl-utils.h"
 @@ -602,6 +603,40 @@ static int meson_gpio_get(struct gpio_chip *chip, unsigned gpio)
  	return !!(val & BIT(bit));
  }
- 
+
 +static int meson_gpio_to_irq(struct gpio_chip *chip, unsigned int gpio)
 +{
 +	struct meson_pinctrl *pc = gpiochip_get_data(chip);
@@ -70,11 +70,11 @@ index 111111111111..222222222222 100644
 +	pc->chip.to_irq = meson_gpio_to_irq;
  	pc->chip.base = -1;
  	pc->chip.ngpio = pc->data->num_pins;
- 	pc->chip.can_sleep = false;
+ 	pc->chip.can_sleep = true;
 @@ -680,6 +716,11 @@ static int meson_pinctrl_parse_dt(struct meson_pinctrl *pc)
  	pc->fwnode = gpiochip_node_get_first(pc->dev);
  	gpio_np = to_of_node(pc->fwnode);
- 
+
 +	pc->of_irq = of_find_compatible_node(NULL,
 +					NULL, "amlogic,meson-gpio-intc");
 +	if (!pc->of_irq)
@@ -93,8 +93,8 @@ index 111111111111..222222222222 100644
  	struct fwnode_handle *fwnode;
 +	struct device_node *of_irq;
  };
- 
+
  #define FUNCTION(fn)							\
--- 
+--
 Armbian
 
