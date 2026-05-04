@@ -1,6 +1,8 @@
 [Unit]
 Description=JetHub hardware initializer
 Before=basic.target
+After=systemd-modules-load.service
+Requires=systemd-modules-load.service
 DefaultDependencies=no
 
 [Service]
