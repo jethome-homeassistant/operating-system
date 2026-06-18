@@ -32,8 +32,8 @@ diff --git a/drivers/power/reset/Makefile b/drivers/power/reset/Makefile
 index a95d1bd275d1..c51d43d85ba0 100644
 --- a/drivers/power/reset/Makefile
 +++ b/drivers/power/reset/Makefile
-@@ -14,6 +14,7 @@ obj-$(CONFIG_POWER_RESET_HISI) += hisi-reboot.o
- obj-$(CONFIG_POWER_RESET_LINKSTATION) += linkstation-poweroff.o
+@@ -16,6 +16,7 @@ obj-$(CONFIG_POWER_RESET_MACSMC) += macsmc-reboot.o
+ obj-$(CONFIG_POWER_RESET_MACSMC) += macsmc-reboot.o
  obj-$(CONFIG_POWER_RESET_MSM) += msm-poweroff.o
  obj-$(CONFIG_POWER_RESET_MT6323) += mt6323-poweroff.o
 +obj-$(CONFIG_POWER_RESET_MESON64) += meson64-reboot.o

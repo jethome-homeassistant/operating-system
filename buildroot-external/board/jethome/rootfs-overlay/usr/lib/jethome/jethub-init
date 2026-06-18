@@ -1,0 +1,94 @@
+#!/bin/bash
+#
+# JetHub hardware-init (HAOS / libgpiod v2 only).
+# Not using set -e: this is a hardware init script — it must attempt every step
+# and log-and-continue on failure rather than abort on the first error.
+
+declare -g LEDS
+
+RP=$(realpath "${0}")
+SCRIPTPATH=$(dirname "${RP}")
+
+# shellcheck source=/dev/null
+source "${SCRIPTPATH}/libjethubconfig.sh"
+
+# Include jethub-init defaults if available
+if [ -f /etc/default/jethub ] ; then
+    . /etc/default/jethub
+fi
+
+GPIOSET=${GPIOSET:-/usr/bin/gpioset}
+GPIOINFO=${GPIOINFO:-/usr/bin/gpioinfo}
+
+### define functions
+
+# gset <name=value>...  — set named line(s) and release (sticky holds the value)
+gset()
+{
+    local rc=0
+    timeout 0.3 "${GPIOSET}" --by-name "$@" || rc=$?
+    if [ "$rc" -ne 124 ] && [ "$rc" -ne 0 ]; then
+        echo "${0}: *** Error: gpioset $* failed (rc=$rc)"
+        return 1
+    fi
+}
+
+# gpulse <name>  — drive named line HIGH for 500ms, then LOW
+gpulse()
+{
+    local name="${1}"
+    "${GPIOSET}" --toggle 500ms,0 --by-name "${name}=1" \
+        || echo "${0}: *** Error: pulse on ${name} failed"
+}
+
+# wait_line <name>  — wait up to 5s for a named line to become usable
+wait_line()
+{
+    local name="${1}"
+    for _ in $(seq 1 50); do
+        "${GPIOINFO}" "${name}" >/dev/null 2>&1 && return 0
+        sleep 0.1
+    done
+    echo "${0}: *** Error: gpio line '${name}' not available"
+    return 1
+}
+
+# gpio_set <chip> <line> <value> <active-level>  — set value by chip+line.
+gpio_set()
+{
+    local chip="${1}" line="${2}" value="${3}" low="${4}" rc=0
+    local args=()
+    [ "${low}" == "${GPIO_ACTIVE_LOW}" ] && args+=("--active-low")
+    timeout 0.3 "${GPIOSET}" "${args[@]}" -c "gpiochip${chip}" "${line}=${value}" || rc=$?
+    if [ "$rc" -ne 124 ] && [ "$rc" -ne 0 ]; then
+        echo "${0}: *** Error: gpioset gpiochip${chip} ${line}=${value} failed (rc=$rc)"
+        return 1
+    fi
+}
+
+configure_led()
+{
+    echo "${0}: Configure LED: chip=${1} line=${2} state=${3} active_level=${4}"
+    gpio_set "${1}" "${2}" "${3}" "${4}"
+}
+
+### end define functions
+
+### begin
+
+echo "${0}: Configure LEDs ..."
+for leds_parameters in "${LEDS[@]}"; do
+    # shellcheck disable=SC2086
+    configure_led ${leds_parameters}
+done
+
+if [[ -n "${ADDITIONALFUNC}" ]]; then
+    for func in ${ADDITIONALFUNC}; do
+        echo "${0}: Start additional init function ${func}"
+        ${func} || echo "${0}: *** Error: ${func} failed"
+    done
+fi
+
+echo "${0}: Initialization done"
+
+exit 0
