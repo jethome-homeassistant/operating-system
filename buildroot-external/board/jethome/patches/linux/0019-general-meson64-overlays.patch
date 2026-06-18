@@ -5,22 +5,22 @@ Subject: general: meson64 overlays
 
 Signed-off-by: Zhang Ning <832666+zhangn1985@users.noreply.github.com>
 ---
- scripts/Makefile.lib | 3 +++
+ scripts/Makefile.build | 3 +++
  1 file changed, 3 insertions(+)
 
-diff --git a/scripts/Makefile.lib b/scripts/Makefile.lib
+diff --git a/scripts/Makefile.build b/scripts/Makefile.build
 index 111111111111..222222222222 100644
---- a/scripts/Makefile.lib
-+++ b/scripts/Makefile.lib
-@@ -75,6 +75,9 @@ always-y += $(hostprogs-always-y) $(hostprogs-always-m)
+--- a/scripts/Makefile.build
++++ b/scripts/Makefile.build
+@@ -107,6 +107,9 @@ userprogs += $(userprogs-always-y) $(userprogs-always-m)
  userprogs += $(userprogs-always-y) $(userprogs-always-m)
  always-y += $(userprogs-always-y) $(userprogs-always-m)
- 
+
 +# Overlay targets
 +extra-y                                += $(dtbo-y) $(scr-y) $(dtbotxt-y)
 +
  # Add subdir path
- 
+
  ifneq ($(obj),.)
 -- 
 Armbian
