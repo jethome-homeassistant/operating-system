@@ -1,36 +1,14 @@
 #!/bin/bash
 # shellcheck disable=SC2034
+#
+# JetHub D1 (J100). Lines are named in the DTS (j1xx.dtsi): ZigBeeBOOT(36),
+# ZigBeeRESET(41), LedRed(26), LedGreen(27). Zigbee reset is addressed by name
+# (gset/gpulse). LEDs are driven by chip+line (SoC chip 0 is stable).
 
 GPIOCHIPNUMBER=0
-
-GPIO_DIRECTION_OUTPUT=0
-GPIO_DIRECTION_INPUT=1
-
 GPIO_ACTIVE_LOW=0
-GPIO_ACTIVE_HIGH=1
 
-GPIOS=(
-  # Discrete inputs: 1, 2, 3, 4
-  "${GPIOCHIPNUMBER} 46 ${GPIO_DIRECTION_INPUT} ${GPIO_ACTIVE_HIGH}"
-  "${GPIOCHIPNUMBER} 45 ${GPIO_DIRECTION_INPUT} ${GPIO_ACTIVE_HIGH}"
-  "${GPIOCHIPNUMBER} 44 ${GPIO_DIRECTION_INPUT} ${GPIO_ACTIVE_HIGH}"
-  "${GPIOCHIPNUMBER} 43 ${GPIO_DIRECTION_INPUT} ${GPIO_ACTIVE_HIGH}"
-  # Relays: 1, 2, 3
-  "${GPIOCHIPNUMBER} 30 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
-  "${GPIOCHIPNUMBER} 29 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
-  "${GPIOCHIPNUMBER} 28 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
-  # Zigbee module: RESET, BOOT
-  "${GPIOCHIPNUMBER} 41 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
-  "${GPIOCHIPNUMBER} 36 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
-  # LEDs: RED, GREEN
-  "${GPIOCHIPNUMBER} 26 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_LOW}"
-  "${GPIOCHIPNUMBER} 27 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_LOW}"
-  # Button
-  "${GPIOCHIPNUMBER} 10 ${GPIO_DIRECTION_INPUT} ${GPIO_ACTIVE_LOW}"
-)
-
-
-# Set LED states
+# LED states at boot: both OFF (active-low).
 LEDS=(
     # LED RED
     "${GPIOCHIPNUMBER} 26 0 ${GPIO_ACTIVE_LOW}"
@@ -38,23 +16,21 @@ LEDS=(
     "${GPIOCHIPNUMBER} 27 0 ${GPIO_ACTIVE_LOW}"
 )
 
-
 reset_zigbee() {
     echo "${0}: Reset Zigbee module ..."
-    gpio_set ${GPIOCHIPNUMBER} 36 1 ${GPIO_ACTIVE_HIGH}
-    gpio_set ${GPIOCHIPNUMBER} 41 1 ${GPIO_ACTIVE_HIGH}
-    sleep 1
-    gpio_set ${GPIOCHIPNUMBER} 41 0 ${GPIO_ACTIVE_HIGH}
+    wait_line ZigBeeRESET || return 1
+    gset ZigBeeBOOT=1
+    gpulse ZigBeeRESET
 }
 
 config_1wire() {
     echo "${0}: Configure 1-Wire ..."
     if ! modprobe ds2482; then
         echo "${0}: *** Error: Failed to load DS2482 kernel module"
-        exit 1
+        return 1
     fi
-
-    sh -c "echo ds2482 0x18 > /sys/bus/i2c/devices/i2c-0/new_device" || true
+    # No ds2482 node in the DTS: instantiate the i2c device manually.
+    sh -c "echo ds2482 0x18 > /sys/bus/i2c/devices/i2c-0/new_device" 2>/dev/null || true
 }
 
 ADDITIONALFUNC="reset_zigbee config_1wire"
