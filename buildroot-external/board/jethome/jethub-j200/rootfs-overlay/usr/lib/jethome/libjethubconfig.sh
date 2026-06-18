@@ -1,35 +1,15 @@
 #!/bin/bash
 # shellcheck disable=SC2034
-
-GPIO_DIRECTION_OUTPUT=0
-GPIO_DIRECTION_INPUT=1
+#
+# JetHub H1 (J200). Relays/DINs/UXM RESET+BOOT sit on the pca9535 i2c expander
+# whose gpiochip number is unstable, so they are addressed BY NAME (gset/gpulse;
+# names RELAY_*, UXM*_RESET/BOOT come from the DTS). LEDs are on stable SoC banks
+# and driven by chip+line.
 
 GPIO_ACTIVE_LOW=0
 GPIO_ACTIVE_HIGH=1
 
-GPIOS=(
-  # Discrete inputs: 1, 2, 3
-  "2  8 ${GPIO_DIRECTION_INPUT} ${GPIO_ACTIVE_HIGH}"
-  "2  9 ${GPIO_DIRECTION_INPUT} ${GPIO_ACTIVE_HIGH}"
-  "2 10 ${GPIO_DIRECTION_INPUT} ${GPIO_ACTIVE_HIGH}"
-  # Relays: 1, 2
-  "2  0 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
-  "2  1 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
-  # UXM1 module: RESET, BOOT
-  "2  4 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
-  "2  5 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
-  # UXM2 module: RESET, BOOT
-  "2  6 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
-  "2  7 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_HIGH}"
-  # LEDs: RED, GREEN
-  "0 21 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_LOW}"
-  "1 11 ${GPIO_DIRECTION_OUTPUT} ${GPIO_ACTIVE_LOW}"
-  # Button
-  "${GPIOCHIPNUMBER} 10 ${GPIO_DIRECTION_INPUT} ${GPIO_ACTIVE_LOW}"
-)
-
-
-# Set LED states
+# LED states at boot: RED off, GREEN on.
 LEDS=(
     # LED RED
     "0 21 0 ${GPIO_ACTIVE_HIGH}"
@@ -37,28 +17,31 @@ LEDS=(
     "1 11 1 ${GPIO_ACTIVE_HIGH}"
 )
 
+uxm_recover() {
+    local uxm="$1"
+    wait_line "${uxm}_RESET" || return 1
+    gset "${uxm}_BOOT=1"
+    gpulse "${uxm}_RESET"
+    sleep 0.5
+    gset "${uxm}_BOOT=0"
+    gpulse "${uxm}_RESET"
+}
 
 reset_uxm1() {
-    echo "${0}: Reset UXM1 module ..."
-    gpio_set 2 5 1 ${GPIO_ACTIVE_HIGH}
-    gpio_set 2 6 1 ${GPIO_ACTIVE_HIGH}
-    sleep 1
-    gpio_set 2 6 0 ${GPIO_ACTIVE_HIGH}
+    echo "${0}: Reset UXM1 module"
+    uxm_recover UXM1
 }
 
 reset_uxm2() {
-    echo "${0}: Reset UXM2 module ..."
-    gpio_set 2 7 1 ${GPIO_ACTIVE_HIGH}
-    gpio_set 2 6 1 ${GPIO_ACTIVE_HIGH}
-    sleep 1
-    gpio_set 2 6 0 ${GPIO_ACTIVE_HIGH}
+    echo "${0}: Reset UXM2 module"
+    uxm_recover UXM2
 }
 
 config_1wire() {
     echo "${0}: Configure 1-Wire ..."
     if ! modprobe ds2482; then
         echo "${0}: *** Error: Failed to load DS2482 kernel module"
-        exit 1
+        return 1
     fi
 }
 
