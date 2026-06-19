@@ -1,17 +1,14 @@
-#!/bin/bash
+#!/bin/sh
 # shellcheck disable=SC2034
-#
-# JetHub D2 (J80). Zigbee EFR32 control lines are named in the DTS (AO bank:
-# ZigBeeRESET=GPIOAO_6, ZigBeeBOOT=GPIOAO_9) — addressed by name (gset/gpulse).
-# Z-Wave RESET/SUSPEND and the LED are on the periphs bank (stable), by chip+line.
 
+GPIO_ACTIVE_LOW=0
 GPIO_ACTIVE_HIGH=1
 
-# Set LED states
-LEDS=(
+configure_leds() {
+    echo "${0}: Configure LEDs ..."
     # LED
-    "1 73 0 ${GPIO_ACTIVE_HIGH}"
-)
+    configure_led 1 73 0 ${GPIO_ACTIVE_HIGH}
+}
 
 reset_zigbee() {
     echo "${0}: Reset Zigbee module ..."
@@ -22,7 +19,6 @@ reset_zigbee() {
 
 reset_zwave() {
     echo "${0}: Reset Z-Wave module ..."
-    # Optional SUSPEND pin
     # gpio_set 1 90 1 ${GPIO_ACTIVE_HIGH}
     gpio_set 1 89 1 ${GPIO_ACTIVE_HIGH}
     sleep 1
@@ -31,9 +27,9 @@ reset_zwave() {
 
 eth_leds() {
     echo "${0}: Configure Ethernet leds ..."
-    /usr/sbin/jethub_set-eth_leds
+    /usr/lib/jethome/jethub_set-eth_leds
 }
 
-ADDITIONALFUNC="eth_leds reset_zigbee"
+ADDITIONALFUNC="configure_leds reset_zigbee eth_leds"
 # Enable for second module
 #ADDITIONALFUNC="${ADDITIONALFUNC} reset_zwave"

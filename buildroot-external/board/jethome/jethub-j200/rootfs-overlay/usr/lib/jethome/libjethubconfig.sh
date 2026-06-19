@@ -1,24 +1,8 @@
-#!/bin/bash
+#!/bin/sh
 # shellcheck disable=SC2034
-#
-# JetHub H1 (J200). Relays/DINs/UXM RESET+BOOT sit on the pca9535 i2c expander
-# whose gpiochip number is unstable, so they are addressed BY NAME (gset/gpulse;
-# names RELAY_*, UXM*_RESET/BOOT come from the DTS). LEDs are on stable SoC banks
-# and driven by chip+line.
-
-GPIO_ACTIVE_LOW=0
-GPIO_ACTIVE_HIGH=1
-
-# LED states at boot: RED off, GREEN on.
-LEDS=(
-    # LED RED
-    "0 21 0 ${GPIO_ACTIVE_HIGH}"
-    # LED GREEN
-    "1 11 1 ${GPIO_ACTIVE_HIGH}"
-)
 
 uxm_recover() {
-    local uxm="$1"
+    uxm="$1"
     wait_line "${uxm}_RESET" || return 1
     gset "${uxm}_BOOT=1"
     gpulse "${uxm}_RESET"
