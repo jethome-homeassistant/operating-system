@@ -1,0 +1,21 @@
+config BR2_PACKAGE_JETHUB_INIT
+	bool "jethub-init"
+	select BR2_PACKAGE_LIBGPIOD2
+	select BR2_PACKAGE_LIBGPIOD2_TOOLS
+	help
+	  JetHub hardware init for HAOS: the common jethub-init entry
+	  point plus the per-board libjethubconfig.sh (GPIO / LED /
+	  zigbee / UXM setup). POSIX ash + libgpiod v2, executed by
+	  jethub-initer.service.
+
+	  https://github.com/jethome-iot/jethub-init
+
+if BR2_PACKAGE_JETHUB_INIT
+
+config BR2_PACKAGE_JETHUB_INIT_BOARD
+	string "JetHub board (j80 / j100 / j200)"
+	help
+	  Board subdirectory under haos-ash/ whose libjethubconfig.sh is
+	  installed as /usr/lib/jethome/libjethubconfig.sh.
+
+endif
