@@ -17,9 +17,9 @@ index 4507dc8b5563..18295b15ecd9 100644
  	pc->chip.ngpio = pc->data->num_pins;
 -	pc->chip.can_sleep = true;
 +	pc->chip.can_sleep = false;
- 
+
  	ret = gpiochip_add_data(&pc->chip, pc);
  	if (ret) {
--- 
+--
 2.43.0
 
