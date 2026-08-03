@@ -1,0 +1,25 @@
+From: JetHub HAOS port <dev@jethome.ru>
+Subject: [PATCH] Makefile: drop forced -Werror for CONFIG_AMLOGIC_DRIVER builds
+
+The vendor tree appends -Werror unconditionally whenever
+CONFIG_AMLOGIC_DRIVER=y. That is independent of CONFIG_WERROR, so the
+usual "# CONFIG_WERROR is not set" has no effect here.
+
+HAOS enables subsystems this vendor tree was never compiled with
+(AppArmor, EROFS, additional netfilter and USB-serial drivers) and
+builds with a newer toolchain than the vendor used, so warnings that
+were never triggered upstream become hard errors and stop the build.
+
+Drop the forced -Werror; warnings remain visible, they just no longer
+abort the build.
+
+--- a/Makefile
++++ b/Makefile
+@@ -706,7 +706,6 @@
+ LINUXINCLUDE   += \
+ 		-I$(srctree)/$(COMMON_DRIVERS_DIR)/include \
+ 		-I$(srctree)/$(COMMON_DRIVERS_DIR)/include/uapi
+-KBUILD_CFLAGS += -Werror
+ KBUILD_AFLAGS += -Wno-unused-command-line-argument
+ endif
+ 
