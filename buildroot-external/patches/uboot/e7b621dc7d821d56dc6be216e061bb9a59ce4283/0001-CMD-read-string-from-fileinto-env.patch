@@ -1,0 +1,106 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Pascal Vizeli <pvizeli@syshack.ch>
+Date: Sun, 5 Aug 2018 20:43:03 +0000
+Subject: [PATCH] CMD: read string from fileinto env
+
+Ported to the JetHome vendor U-Boot 2023.01 tree
+(github.com/jethome-iot/u-boot, branch jethub_j310). Only the context of
+the cmd/Kconfig and cmd/Makefile hunks differs from the mainline version
+of this patch; cmd/fileenv.c is byte-for-byte identical.
+
+In this tree CMD_FILEENV is added at the end of the "Misc commands" menu
+(the mainline patch targets the same menu, which upstream has since
+renamed/reordered). do_fat_fsload() is provided by cmd/fat.c, which is
+built when CONFIG_CMD_FAT=y - guaranteed here because
+buildroot-external/bootloader/uboot.config sets CONFIG_DISTRO_DEFAULTS=y
+and DISTRO_DEFAULTS selects CMD_FAT. Deliberately no "depends on CMD_FAT"
+so that a misconfiguration is a loud link error rather than a silently
+missing 'fileenv' command at boot time.
+
+Signed-off-by: Pascal Vizeli <pvizeli@syshack.ch>
+---
+ cmd/Kconfig   |  5 +++++
+ cmd/Makefile  |  1 +
+ cmd/fileenv.c | 47 +++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 53 insertions(+)
+ create mode 100644 cmd/fileenv.c
+
+diff --git a/cmd/Kconfig b/cmd/Kconfig
+--- a/cmd/Kconfig
++++ b/cmd/Kconfig
+@@ -2218,6 +2218,11 @@
+ 	  The name 'lcdputs' is a bit of a misnomer, but so named because the
+ 	  video device is often an LCD.
+
++config CMD_FILEENV
++	bool "fileenv"
++	help
++	   Read a file into memory and store it to env.
++
+ endmenu
+
+ source "cmd/ti/Kconfig"
+diff --git a/cmd/Makefile b/cmd/Makefile
+--- a/cmd/Makefile
++++ b/cmd/Makefile
+@@ -160,6 +160,7 @@
+ obj-$(CONFIG_CMD_SHA1SUM) += sha1sum.o
+ obj-$(CONFIG_CMD_SETEXPR) += setexpr.o
+ obj-$(CONFIG_CMD_SETEXPR_FMT) += printf.o
++obj-$(CONFIG_CMD_FILEENV) += fileenv.o
+ obj-$(CONFIG_CMD_SPI) += spi.o
+ obj-$(CONFIG_CMD_STRINGS) += strings.o
+ obj-$(CONFIG_CMD_SMC) += smccc.o
+diff --git a/cmd/fileenv.c b/cmd/fileenv.c
+new file mode 100644
+index 00000000000..7a259e21352
+--- /dev/null
++++ b/cmd/fileenv.c
+@@ -0,0 +1,47 @@
++#include <config.h>
++#include <command.h>
++#include <env.h>
++#include <fs.h>
++#include <vsprintf.h>
++#include <linux/ctype.h>
++
++static char *fs_argv[5];
++
++int do_fileenv(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
++{
++	if (argc < 6)
++		return CMD_RET_USAGE;
++
++	fs_argv[0] = "fatload";
++	fs_argv[1] = argv[1];
++	fs_argv[2] = argv[2];
++	fs_argv[3] = argv[3];
++	fs_argv[4] = argv[4];
++
++	if (do_fat_fsload(cmdtp, 0, 5, fs_argv) != 0)
++		return 1;
++
++	char *addr = (char *)simple_strtoul(argv[3], NULL, 16);
++	size_t size = env_get_hex("filesize", 0);
++
++	// Prepare string
++	addr[size] = 0x00;
++	char *s = addr;
++	while(*s != 0x00) {
++		if (isprint(*s)) {
++			s++;
++		}
++		else {
++			*s = 0x00;
++		}
++	}
++
++	return env_set(argv[5], addr);
++}
++
++U_BOOT_CMD(
++	fileenv, 6, 0, do_fileenv,
++	"Read file and store it into env.",
++	"<interface> <dev:part> <addr> <filename> <envname>\n"
++	"    - Read file from fat32 and store it as env."
++);

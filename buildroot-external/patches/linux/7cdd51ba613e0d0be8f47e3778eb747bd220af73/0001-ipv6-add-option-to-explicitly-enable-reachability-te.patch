@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Stefan Agner <stefan@agner.ch>
+Date: Tue, 28 Mar 2023 12:02:10 +0200
+Subject: [PATCH] ipv6: add option to explicitly enable reachability test
+
+Systems which act as host as well as router might prefer the host
+behavior. Currently the kernel does not allow to use IPv6 forwarding
+globally and at the same time use route reachability probing.
+
+Add a compile time flag to enable route reachability probe in any
+case.
+
+Rebased onto the JetHome vendor Linux 5.15.153 tree
+(github.com/jethome-iot/linux-kernel, branch linux-s7-5.15). The only
+difference against the mainline version of this patch is that 5.15 does
+not yet wrap the devconf_all->forwarding read in READ_ONCE() - that was
+introduced by commit 25a591f9e7fa ("net/ipv6: Use READ_ONCE() ...") in
+a later release.
+
+Signed-off-by: Stefan Agner <stefan@agner.ch>
+---
+ net/ipv6/Kconfig | 9 +++++++++
+ net/ipv6/route.c | 3 ++-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
+--- a/net/ipv6/Kconfig
++++ b/net/ipv6/Kconfig
+@@ -47,6 +47,15 @@
+
+ 	  If unsure, say N.
+
++config IPV6_REACHABILITY_PROBE
++	bool "IPv6: Always use reachability probing (RFC 4191)"
++	help
++	  By default reachability probing is disabled on router devices (when
++	  IPv6 forwarding is enabled). This option explicitly enables
++	  reachability probing always.
++
++	  If unsure, say N.
++
+ config INET6_AH
+ 	tristate "IPv6: AH transformation"
+ 	select XFRM_AH
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2214,7 +2214,8 @@
+
+ 	strict |= flags & RT6_LOOKUP_F_IFACE;
+ 	strict |= flags & RT6_LOOKUP_F_IGNORE_LINKSTATE;
+-	if (net->ipv6.devconf_all->forwarding == 0)
++	if (net->ipv6.devconf_all->forwarding == 0 ||
++	    IS_ENABLED(CONFIG_IPV6_REACHABILITY_PROBE))
+ 		strict |= RT6_LOOKUP_F_REACHABLE;
+
+ 	rcu_read_lock();

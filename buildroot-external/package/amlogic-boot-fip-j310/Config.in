@@ -1,0 +1,23 @@
+config BR2_PACKAGE_AMLOGIC_BOOT_FIP_J310
+	 bool "amlogic-boot-fip-j310"
+	 help
+	   This package builds the Amlogic S7 (S905Y5) FIP bootloader
+	   image for the JetHome JetHub D3-mini (j310) from the JetHome
+	   fork of the amlogic-boot-fip repository.
+
+	   It wraps the U-Boot binary (BL33) together with the signed
+	   vendor boot blobs (bb1st, BL2E, BL2X, DDR FIP, device FIP)
+	   into the eMMC/SD and USB bootloader images.
+
+	   https://github.com/jethome-iot/amlogic-boot-fip
+
+if BR2_PACKAGE_AMLOGIC_BOOT_FIP_J310
+
+config BR2_PACKAGE_AMLOGIC_BOOT_FIP_J310_BOARD
+	string "Board uboot firmware config"
+	default "jethub-j310"
+	depends on BR2_PACKAGE_AMLOGIC_BOOT_FIP_J310
+	help
+	  Name of the board for which U-Boot firmware should be built
+	  from amlogic-boot-fip
+endif
