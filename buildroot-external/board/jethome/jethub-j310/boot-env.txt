@@ -1,15 +1,2 @@
-# Boot configuration for JetHome JetHub D3-mini (j310).
-#
-# This file is installed on the hassos-boot partition as hassos-config.txt and
-# is imported by the U-Boot boot script ("env import -t"), so every uncommented
-# line has to be a plain "name=value" pair.  Lines starting with '#' are
-# ignored.  Changes take effect on the next reboot.
-
-# Override the kernel command line.  If this is left commented out the boot
-# script uses the built-in default, which is identical to cmdline.txt:
-#cmdline=console=ttyS0,921600n8 console=tty0 earlycon=aml_uart,0xfe07a000
-
-# Device tree overlays to apply, space separated and without the ".dtbo"
-# suffix.  The matching <name>.dtbo files have to exist in the overlays/
-# directory of this partition.  No overlays are shipped for j310 yet.
-#overlays=
+# Uncomment this to enable GPIO support for RPI-RF-MOD/HM-MOD-RPI-PCB
+#overlays=rpi-rf-mod
