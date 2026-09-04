@@ -22,7 +22,6 @@ function haos_pre_image() {
         cp "${BINARIES_DIR}"/*.dtbo "${BOOT_DATA}/overlays/"
     fi
     cp "${BOARD_DIR}/boot-env.txt" "${BOOT_DATA}/hassos-config.txt" || true
-    cp "${BOARD_DIR}/cmdline.txt" "${BOOT_DATA}/cmdline.txt"
 }
 
 function haos_post_image() {

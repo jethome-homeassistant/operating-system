@@ -45,10 +45,6 @@ if test -n "${usid}"; then setenv bootargs_hassos "${bootargs_hassos} usid=${usi
 setenv bootargs_a "root=PARTUUID=48617373-06 ro rootwait"
 setenv bootargs_b "root=PARTUUID=48617373-08 ro rootwait"
 
-if fileenv ${devtype} ${devnum}:1 ${ramdisk_addr_r} cmdline.txt cmdline; then
-  echo "Kernel command line taken from cmdline.txt"
-fi
-
 if test -e ${devtype} ${devnum}:1 hassos-config.txt; then
   fatload ${devtype} ${devnum}:1 ${ramdisk_addr_r} hassos-config.txt
   env import -t ${ramdisk_addr_r} ${filesize}
