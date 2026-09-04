@@ -1,50 +1,12 @@
-# HAOS boot script for the JetHome JetHub D3-mini (j310), Amlogic S905Y5 (s7).
-#
-# This is a board-local copy of buildroot-external/board/jethome/uboot-boot.ush.
-# It cannot be shared with j80/j100/j200 because the j310 bootloader is the
-# Amlogic 2023.01 vendor tree (github.com/jethome-iot/u-boot, branch
-# jethub_j310), not mainline U-Boot:
-#
-#   * board/amlogic/configs/jethub_j310.h does not include configs/meson64.h,
-#     so kernel_addr_r / fdt_addr_r / ramdisk_addr_r / fdtfile do not exist in
-#     the default environment.  They are defined below.
-#   * the vendor tree has no 'fileenv' command; it is added by
-#     buildroot-external/patches/uboot/<uboot-sha>/0001-CMD-read-string-from-fileinto-env.patch
-#     and enabled via this board's uboot.config.  The default command line is
-#     still embedded below so the script keeps working if that patch or the
-#     CONFIG_CMD_FILEENV symbol ever goes away.
-#
-# The A/B slot logic, the bootstate environment handling and the partition
-# numbering below are unchanged from the shared script.
-
-# --- environment the vendor U-Boot does not provide --------------------------
-
-# CONFIG_BOOTCOMMAND sets devtype/devnum before sourcing this script (0 = SD,
-# 1 = eMMC).  Default to eMMC if it was sourced some other way.
 test -n "${devtype}" || setenv devtype mmc
 test -n "${devnum}" || setenv devnum 1
-
-# Load addresses.  DRAM starts at 0x0 and the reserved-memory regions in
-# meson-s7-jethub-j310.dts end at 0x07480000, so everything is kept well above
-# 0x08000000.  The kernel/FDT addresses are the ones the JetHub j310 recovery
-# image already boots with (rescue.its: kernel 0x14000000, fdt 0x10800000);
-# 0x18000000 is scratch space for the environment blob, cmdline.txt and DT
-# overlays, clear of the 24 MiB kernel image at 0x14000000 and of the
-# 0x12000000 address the vendor bootcmd loads this script to.
 setenv kernel_addr_r 0x14000000
 setenv fdt_addr_r 0x10800000
 setenv ramdisk_addr_r 0x18000000
 
-# Installed by hassos-hook.sh into the hassos-boot partition.
 setenv fdtfile "amlogic/meson-s7-jethub-j310.dtb"
 
-# Default kernel command line, kept byte-identical to this board's cmdline.txt.
-# The vendor UART driver (common_drivers/drivers/tty/serial/meson_uart.c,
-# AML_UART_DEV_NAME "ttyS") registers ttyS0 for serial0 = &uart_B, and the DTS
-# chosen/stdout-path is "serial0:921600n8".
 setenv cmdline "console=ttyS0,921600n8 console=tty0 earlycon=aml_uart,0xfe07a000"
-
-# --- RAUC boot state ---------------------------------------------------------
 
 part start ${devtype} ${devnum} 9 mmc_env
 ${devtype} dev ${devnum}
@@ -63,7 +25,6 @@ test -n "${BOOT_ORDER}" || setenv BOOT_ORDER "A B"
 test -n "${BOOT_A_LEFT}" || setenv BOOT_A_LEFT 3
 test -n "${BOOT_B_LEFT}" || setenv BOOT_B_LEFT 3
 
-# Allows ConditionFirstBoot=
 test -n "${MACHINE_ID}" || setenv BOOT_CONDITION "systemd.condition-first-boot=true"
 
 # JHaOS bootargs
@@ -84,21 +45,10 @@ if test -n "${usid}"; then setenv bootargs_hassos "${bootargs_hassos} usid=${usi
 setenv bootargs_a "root=PARTUUID=48617373-06 ro rootwait"
 setenv bootargs_b "root=PARTUUID=48617373-08 ro rootwait"
 
-# Kernel command line, lowest priority first:
-#   1. the built-in default set at the top of this script
-#   2. cmdline.txt on the boot partition (via 'fileenv')
-#   3. a "cmdline=" line in hassos-config.txt / haos-config.txt
-# 'fileenv' is not part of the vendor U-Boot; it is added by
-# buildroot-external/patches/uboot/<uboot-sha>/0001-CMD-read-string-from-fileinto-env.patch
-# and enabled by this board's uboot.config (CONFIG_CMD_FILEENV=y).  The call is
-# still guarded so that a build without that patch falls back to the default.
 if fileenv ${devtype} ${devnum}:1 ${ramdisk_addr_r} cmdline.txt cmdline; then
   echo "Kernel command line taken from cmdline.txt"
 fi
 
-# Load environment from the boot partition.  hassos-hook.sh writes
-# hassos-config.txt; haos-config.txt is accepted too because that is the name
-# the other HAOS boards use.
 if test -e ${devtype} ${devnum}:1 hassos-config.txt; then
   fatload ${devtype} ${devnum}:1 ${ramdisk_addr_r} hassos-config.txt
   env import -t ${ramdisk_addr_r} ${filesize}
@@ -125,16 +75,6 @@ if test "${overlay_error}" = "true"; then
   fatload ${devtype} ${devnum}:1 ${fdt_addr_r} ${fdtfile}
 fi
 
-# logical volumes get numbered after physical ones.
-# 1. boot
-# 2. Extended partition
-# 3. Overlay
-# 4. Data
-# 5. KernelA
-# 6. SystemA
-# 7. KernelB
-# 8. SystemB
-# 9. BootInfo
 setenv bootargs
 for BOOT_SLOT in "${BOOT_ORDER}"; do
   if test "x${bootargs}" != "x"; then
