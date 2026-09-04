@@ -5,7 +5,7 @@
 #
 ################################################################################
 
-AMLOGIC_BOOT_FIP_J310_VERSION = 0195df574f251c4bd97fa3a8a64aca503ddd3d56
+AMLOGIC_BOOT_FIP_J310_VERSION = 0b32cafa18d463010c5f1034ee57f2308afb73c6
 AMLOGIC_BOOT_FIP_J310_SITE = https://github.com/jethome-iot/amlogic-boot-fip.git
 AMLOGIC_BOOT_FIP_J310_SITE_METHOD = git
 AMLOGIC_BOOT_FIP_J310_INSTALL_IMAGES = YES
