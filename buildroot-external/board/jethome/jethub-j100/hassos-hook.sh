@@ -1,9 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC2155
 
-# shellcheck source=../../../scripts/burn.sh
-. "${SCRIPT_DIR}/burn.sh"
-
 function haos_pre_image() {
     local BOOT_DATA="$(path_boot_dir)"
 
@@ -24,7 +21,5 @@ function haos_pre_image() {
 
 function haos_post_image() {
     convert_disk_image_xz
-    # support for create AmLogic burnable images
-    [[ -f "${BINARIES_DIR}/platform.conf" ]] && _create_disk_burn
-    [[ -f "${BINARIES_DIR}/platform.conf" ]] && convert_disk_image_burn_zip
+    convert_disk_image_burn
 }
