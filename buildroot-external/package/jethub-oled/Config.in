@@ -1,0 +1,22 @@
+config BR2_PACKAGE_JETHUB_OLED
+	bool "jethub-oled"
+	depends on BR2_PACKAGE_PYTHON3
+	select BR2_PACKAGE_PYTHON_PILLOW # runtime
+	select BR2_PACKAGE_FREETYPE # runtime, TrueType in Pillow
+	select BR2_PACKAGE_DEJAVU # runtime
+	select BR2_PACKAGE_DEJAVU_MONO # runtime, clock digits
+	select BR2_PACKAGE_DEJAVU_SANS # runtime, screen headers
+	select BR2_PACKAGE_DEJAVU_SANS_CONDENSED # runtime, everything else
+	help
+	  Status screens and a joystick menu on the SSD1306 OLED of
+	  JetHub J310: CPU and RAM rings with temperature and uptime,
+	  the IP address, a clock, Ethernet and Wi-Fi details (through
+	  nmcli) and reboot. Drawn with Pillow through the ssd1307fb
+	  framebuffer.
+
+	  A badge on the resources screen shows whether Home Assistant
+	  Core is starting, ready or failing, read from Core over the
+	  Unix socket it opens for Supervisor.
+
+	  Also installs the boot logo overlay jethub-oled-splash.dtbo,
+	  which ssd1307fb shows from probe until the daemon starts.
