@@ -1,0 +1,23 @@
+BOARD_ID=jethub-d3-mini
+BOARD_NAME="JetHome JetHub D3-mini (j310)"
+CHASSIS=embedded
+BOOTLOADER=uboot
+KERNEL_FILE=Image
+KERNEL_DTB=meson-s7-jethub-j310.dtb
+# GPT, not MBR: on this board the GPT *is* the table the bootloader reads --
+# fill_ept_by_gpt() in the vendor U-Boot builds the Amlogic ept straight from the
+# GPT entries, so partition names replace the index-bound mbr-part.rules shim.
+PARTITION_TABLE_TYPE=gpt
+BOOT_SIZE=24M
+# No SPL in the image. The signed Amlogic bootloader occupies LBA 0 and then LBA 1
+# onward, which is exactly where the GPT header and entry array live; the two
+# cannot share the disk. On eMMC that is fine -- the burn writes the bootloader as
+# its own item into boot0/boot1, and mmc_boot_copy_enable() deliberately skips the
+# user-area copy whenever a valid GPT is present. Consequence: the raucb bundle no
+# longer carries spl.img, so U-Boot is not updated over RAUC.
+BOOT_SPL=false
+BOOT_ENV_SIZE=0x2000
+BURN_BOARD=j310
+SUPERVISOR_MACHINE=jethub-d3-mini
+SUPERVISOR_ARCH=aarch64
+DISK_SIZE=8G
