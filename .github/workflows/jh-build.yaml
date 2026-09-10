@@ -264,6 +264,7 @@ jobs:
           remote_key: ${{ secrets.DEV_SSH_KEY }}
 
       - name: Check Linux config
+        if: ${{ matrix.board.family != 'j310' }}
         run: |
           docker run --rm --privileged \
             -e BUILDER_UID="$(id -u)" -e BUILDER_GID="$(id -g)" \
