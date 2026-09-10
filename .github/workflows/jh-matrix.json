@@ -28,5 +28,15 @@
     "architecture": "aarch64",
     "family": "j80",
     "supported": "h1"
+  },
+  {
+    "id": "jethub-d3",
+    "name": "jethub-d3",
+    "defconfig": "jethub_j310",
+    "runner": "self-hosted",
+    "label": "board/jethub",
+    "architecture": "aarch64",
+    "family": "j310",
+    "supported": "d3"
   }
 ]
