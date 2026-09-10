@@ -109,3 +109,40 @@ function convert_disk_image_zip() {
     rm -f "${hdd_img}.zip"
     pigz -q -K -S ".zip" "${hdd_img}"
 }
+
+function convert_disk_image_burn() {
+    local tools_dir="${HOST_DIR}/share/jethome-tools"
+    local img_xz produced target base
+
+    if [ -z "${BURN_BOARD}" ]; then
+        echo "BURN_BOARD is not set in the board meta, skipping burn image"
+        return 0
+    fi
+
+    if [ ! -x "${tools_dir}/convert.sh" ]; then
+        echo "jethome-tools not found in ${tools_dir}, skipping burn image"
+        return 0
+    fi
+
+    img_xz="$(haos_image_name img).xz"
+    if [ ! -f "${img_xz}" ]; then
+        echo "${img_xz} not found, skipping burn image"
+        return 0
+    fi
+
+    base="$(basename "$(haos_image_name img)" .img)"
+    produced="${tools_dir}/output/${base}.burn.img.zip"
+    target="$(haos_image_name_burn img).zip"
+
+    rm -f "${produced}" "${target}"
+    (cd "${tools_dir}" && ./convert.sh "${img_xz}" "${BURN_BOARD}" haos compress \
+        "${BINARIES_DIR}/u-boot.bin")
+
+    if [ ! -f "${produced}" ]; then
+        echo "ERROR: convert.sh did not produce ${produced}"
+        return 1
+    fi
+
+    mv "${produced}" "${target}"
+    echo "Burn image: ${target}"
+}
