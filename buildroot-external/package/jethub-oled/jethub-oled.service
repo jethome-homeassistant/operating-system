@@ -1,0 +1,10 @@
+[Unit]
+Description=JetHub OLED system status
+
+[Service]
+ExecStart=/usr/sbin/jethub-oled
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=haos-hardware.target
