@@ -5,6 +5,8 @@ Description=JetHub OLED system status
 ExecStart=/usr/sbin/jethub-oled
 Restart=on-failure
 RestartSec=5
+KillMode=mixed
+TimeoutStopSec=5
 
 [Install]
 WantedBy=haos-hardware.target

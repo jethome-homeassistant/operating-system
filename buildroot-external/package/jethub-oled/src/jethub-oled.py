@@ -52,6 +52,9 @@ HOLD = 3.0          # seconds the center key is held on Reboot
 ROLLBACK = 0.3      # seconds the reboot ring takes to empty after a release
 FRAME = 0.1         # frame period while the reboot ring moves
 SPIN_FRAME = 0.25   # frame period of the Home Assistant spinner
+ROW_KEY_SIZE = 12    # key/value rows of the details screens
+ROW_VALUE_SIZE = 13  # a MAC fits at this size only without a key beside it
+IP_VALUE_SIZE = 14   # the address is what these screens are opened for
 
 # Home Assistant Core. Supervisor starts Core with SUPERVISOR_CORE_API_SOCKET
 # on a bind mount of the host's /run/supervisor, and keeps its settings in
@@ -261,6 +264,34 @@ def ipv4():
             return None
 
 
+class Traffic:
+    """Bytes per second of an interface, from one sample to the next."""
+
+    def __init__(self):
+        self._last = {}
+
+    def rate(self, iface, now):
+        counters = tuple(
+            int(sysfs_read(f"/sys/class/net/{iface}/statistics/{name}", "0") or 0)
+            for name in ("rx_bytes", "tx_bytes"))
+        before = self._last.get(iface)
+        self._last[iface] = (now, counters)
+        if not before or now <= before[0]:
+            return None
+        seconds = now - before[0]
+        return tuple(max(0, new - old) / seconds for new, old in zip(counters, before[1]))
+
+
+def human_rate(value):
+    for unit in ("", "K", "M", "G"):
+        if value < 1000:
+            break
+        value /= 1024
+    if unit == "":
+        return f"{round(value)}"
+    return f"{value:.1f}{unit}" if value < 10 else f"{round(value)}{unit}"
+
+
 def link_speed(iface):
     speed = sysfs_read(f"/sys/class/net/{iface}/speed", "")
     mbit = int(speed) if speed.lstrip("-").isdigit() else -1
@@ -305,7 +336,7 @@ class Network:
         return found
 
     def details(self, dev):
-        """First address, gateway, DNS server and the MAC of a device."""
+        """First address (without the prefix), gateway, DNS server and MAC."""
         info = {}
         out = self._nmcli("-f", "GENERAL.HWADDR,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS",
                           "device", "show", dev)
@@ -313,8 +344,30 @@ class Network:
             key, _, value = line.partition(":")
             key = key.split("[")[0]
             if value and value != "--" and key not in info:
-                info[key] = value
+                info[key] = value.split("/")[0] if key == "IP4.ADDRESS" else value
         return info
+
+    def ip_method(self, dev):
+        """DHCP or Static, as the profile of the device says."""
+        conn = ""
+        for line in self._nmcli("-f", "GENERAL.CONNECTION", "device", "show", dev).splitlines():
+            key, _, value = line.partition(":")
+            if key == "GENERAL.CONNECTION":
+                conn = value
+        if not conn:
+            return None
+        for line in self._nmcli("-f", "ipv4.method", "connection", "show", conn).splitlines():
+            key, _, value = line.partition(":")
+            if key == "ipv4.method":
+                return {"auto": "DHCP", "manual": "Static"}.get(value)
+        return None
+
+    def online(self):
+        """Whether NetworkManager sees a way out to the internet. It checks
+        on its own schedule and on every link change, so this is just a read.
+        "unknown" means the check is off, which is not an outage."""
+        state = self._nmcli("-f", "CONNECTIVITY", "general").strip()
+        return state in ("full", "unknown", "")
 
     def wifi(self, dev):
         """SSID and signal in percent of the network the device is on."""
@@ -412,6 +465,11 @@ class HomeAssistant(threading.Thread):
         return self.ERROR
 
     def _probe(self, now):
+        # Without an address nobody can reach Home Assistant, however happy
+        # the container is, so the badge calls that broken.
+        if ipv4() is None:
+            self._since.clear()
+            return self.ERROR
         config = core_config()
         if config.get("version") == "landingpage":
             return self._for("install", now, HA_INSTALL_LIMIT)
@@ -439,14 +497,14 @@ class Fonts:
     def __init__(self, directory):
         self.dir = directory
         self._faces = {}
-        self.label = self.get("DejaVuSansCondensed.ttf", 9)
-        self.small = self.get("DejaVuSansCondensed.ttf", 10)
+        self.label = self.get("DejaVuSansCondensed.ttf", 11)
+        self.small = self.get("DejaVuSansCondensed.ttf", 12)
         self.menu = self.get("DejaVuSansCondensed.ttf", 12)
-        self.value = self.get("DejaVuSansCondensed-Bold.ttf", 9)
-        self.hint = self.get("DejaVuSansCondensed-Bold.ttf", 10)
-        self.status = self.get("DejaVuSansCondensed-Bold.ttf", 11)
-        self.ring = self.get("DejaVuSansCondensed-Bold.ttf", 13)
-        self.header = self.get("DejaVuSans-Bold.ttf", 10)
+        self.value = self.get("DejaVuSansCondensed-Bold.ttf", 12)
+        self.hint = self.get("DejaVuSansCondensed-Bold.ttf", 12)
+        self.status = self.get("DejaVuSansCondensed-Bold.ttf", 12)
+        self.ring = self.get("DejaVuSansCondensed-Bold.ttf", 15)
+        self.header = self.get("DejaVuSans-Bold.ttf", 11)
         self.temp = self.get("DejaVuSans-Bold.ttf", 14)
         self.clock = self.get("DejaVuSansMono-Bold.ttf", 32)
 
@@ -470,11 +528,13 @@ def text(draw, x, baseline, s, face, anchor="ls", fill=1):
 
 
 def clip(draw, s, face, width):
+    """Cut a value to the characters that fit, the last one an ellipsis."""
     if draw.textlength(s, font=face) <= width:
         return s
-    while s and draw.textlength(s + "…", font=face) > width:
-        s = s[:-1]
-    return s + "…"
+    fits = s
+    while fits and draw.textlength(fits, font=face) > width:
+        fits = fits[:-1]
+    return fits[:-1] + "…" if fits else ""
 
 
 def icon(im, x, y, rows):
@@ -553,6 +613,7 @@ class UI:
 
     def __init__(self, fonts, stats, net, ha):
         self.f, self.stats, self.net, self.ha = fonts, stats, net, ha
+        self.traffic = Traffic()
         self.screen = "page"
         self.page = 0
         self.sel = {"menu": 0, "netmenu": 0}
@@ -648,8 +709,10 @@ class UI:
             devs = self.net.devices()
             self.draw_menu(d, "Network", NET_MENU, self.sel[s],
                            [devs.get(k, (None, False))[1] for k in ("ethernet", "wifi")])
+            if not self.net.online():
+                text(d, W // 2, 62, "No internet", self.f.label, "ms")
         elif s == "ethernet":
-            self.draw_ethernet(d)
+            self.draw_ethernet(d, now)
         elif s == "wifi":
             self.draw_wifi(d)
         elif s == "reboot":
@@ -658,35 +721,41 @@ class UI:
 
     def draw_resources(self, im, d, now):
         f, st = self.f, self.stats
-        for cx, pct, label in ((20, st.cpu, "CPU"), (63, st.mem, "RAM")):
-            track(d, cx, 25, 18)
-            arc(d, cx, 25, 19, pct, 4)
-            text(d, cx, 29, str(pct), f.ring, "ms")
-            text(d, cx, 63, label, f.label, "ms")
-        ha_badge(im, d, 107, 11, 10, self.ha.state, now)
-        dotted(d, 24, 88)
-        icon(im, 89, 29, THERM)
+        for cx, pct, label in ((22, st.cpu, "CPU"), (66, st.mem, "RAM")):
+            track(d, cx, 26, 20)
+            arc(d, cx, 26, 21, pct, 4)
+            value = str(pct)
+            face = f.fit(d, value, 28, "DejaVuSansCondensed-Bold.ttf", range(17, 11, -1))
+            text(d, cx, 31, value, face, "ms")
+            text(d, cx, 63, label, f.small, "ms")
+        ha_badge(im, d, 109, 11, 10, self.ha.state, now)
+        dotted(d, 24, 90)
+        icon(im, 91, 29, THERM)
         text(d, 127, 41, "--°" if st.temp is None else f"{st.temp}°", f.temp, "rs")
-        dotted(d, 46, 88)
-        text(d, 127, 60, f"up {uptime_text(st.uptime)}", f.value, "rs")
+        dotted(d, 46, 90)
+        up = f"up {uptime_text(st.uptime)}"
+        text(d, 127, 61, up, f.fit(d, up, 37, "DejaVuSansCondensed-Bold.ttf", range(12, 7, -1)), "rs")
 
     def draw_network(self, im, d, now):
         f = self.f
         iface = default_iface()
         ip = ipv4() if iface else None
         if iface and os.path.isdir(f"/sys/class/net/{iface}/wireless"):
-            bars(d, 0, 8, 4)
-            text(d, 23, 8, "Wi-Fi", f.label)
+            bars(d, 0, 10, 4)
+            text(d, 23, 10, "Wi-Fi", f.label)
         elif iface:
-            icon(im, 0, 1, ETH)
-            text(d, 12, 8, f"Ethernet  {link_speed(iface)}".rstrip(), f.label)
+            icon(im, 0, 3, ETH)
+            text(d, 12, 10, f"Ethernet  {link_speed(iface)}".rstrip(), f.label)
         big = ip or "No network"
         face = f.fit(d, big, W - 2, "DejaVuSansCondensed-Bold.ttf", range(18, 8, -1))
         text(d, W // 2, 36, big, face, "ms")
         dotted(d, 44, 8, 119)
-        host = socket.gethostname() + ".local"
-        face = f.fit(d, host, W - 2, "DejaVuSansCondensed.ttf", range(10, 6, -1))
-        text(d, W // 2, 59, clip(d, host, face, W - 2), face, "ms")
+        if ip and not self.net.online():
+            text(d, W // 2, 59, "No internet", f.value, "ms")
+        else:
+            host = socket.gethostname() + ".local"
+            face = f.fit(d, host, W - 2, "DejaVuSansCondensed.ttf", range(14, 7, -1))
+            text(d, W // 2, 59, host, face, "ms")
 
     def draw_clock(self, im, d, now):
         t = time.localtime()
@@ -711,23 +780,41 @@ class UI:
                 else:
                     d.ellipse(dot, outline=fill)
 
-    def draw_rows(self, d, rows):
-        for i, (key, value) in enumerate(rows):
-            base = 23 + i * 11
-            text(d, 2, base, key, self.f.label)
-            width = W - 1 - 4 - d.textlength(key, font=self.f.label) - 4
-            text(d, W - 1, base, clip(d, value, self.f.value, width), self.f.value, "rs")
+    def row_width(self, d, key):
+        """What is left for a value once its key is drawn."""
+        return W - 4 - d.textlength(key, font=self.f.get("DejaVuSansCondensed-Bold.ttf",
+                                                         ROW_KEY_SIZE)) - 4
 
-    def draw_ethernet(self, d):
+    def draw_rows(self, d, rows, top=26, step=14):
+        """Key in bold on the left, value on the right as large as it fits.
+        The value is upright: it is narrower than bold, so it can be larger.
+        A row may name its own value size as a third field."""
+        f = self.f
+        key_face = f.get("DejaVuSansCondensed-Bold.ttf", ROW_KEY_SIZE)
+        # One fixed size on every details screen, so Ethernet and Wi-Fi look
+        # alike. It is the size at which a MAC still fits next to its key;
+        # anything longer, such as a long SSID, is cut with an ellipsis.
+        for i, row in enumerate(rows):
+            key, value = row[0], row[1]
+            size = row[2] if len(row) > 2 else ROW_VALUE_SIZE
+            base = top + i * step
+            text(d, 2, base, key, key_face)
+            text(d, W - 1, base, value, f.get("DejaVuSansCondensed.ttf", size), "rs")
+
+    def draw_ethernet(self, d, now):
         dev, up = self.net.devices().get("ethernet", (None, False))
-        header(d, self.f, "Ethernet", link_speed(dev) if up else None)
+        header(d, self.f, "Ethernet", self.net.ip_method(dev) if up else None)
         if not dev:
             return centered(d, self.f, "No Ethernet")
-        info = self.net.details(dev)
-        self.draw_rows(d, [("IP", info.get("IP4.ADDRESS", "--")),
-                           ("GW", info.get("IP4.GATEWAY", "--")),
-                           ("DNS", info.get("IP4.DNS", "--")),
-                           ("MAC", info.get("GENERAL.HWADDR", "--").lower())])
+        face = self.f.get("DejaVuSansCondensed.ttf", ROW_VALUE_SIZE)
+        text(d, W // 2, 34, self.net.details(dev).get("IP4.ADDRESS", "--"),
+             self.f.get("DejaVuSansCondensed.ttf", IP_VALUE_SIZE), "ms")
+        rate = self.traffic.rate(dev, now)
+        # Until there are two samples there is nothing to divide, so say so
+        # rather than claim an idle link.
+        line = ("\u2193 --  \u2191 --" if rate is None else
+                f"\u2193 {human_rate(rate[0])}  \u2191 {human_rate(rate[1])}")
+        text(d, W // 2, 56, line, face, "ms")
 
     def draw_wifi(self, d):
         dev, up = self.net.devices().get("wifi", (None, False))
@@ -740,10 +827,12 @@ class UI:
         info = self.net.details(dev)
         if signal_pct is not None:
             bars(d, 104, 9, min(4, (signal_pct + 10) // 20), fill=0)
-        self.draw_rows(d, [("SSID", ssid or "--"),
-                           ("IP", info.get("IP4.ADDRESS", "--")),
-                           ("GW", info.get("IP4.GATEWAY", "--")),
-                           ("Signal", "--" if signal_pct is None else f"{signal_pct}%")])
+        ssid = clip(d, ssid or "--", self.f.get("DejaVuSansCondensed.ttf", ROW_VALUE_SIZE),
+                    self.row_width(d, "SSID"))
+        self.draw_rows(d, [("SSID", ssid),
+                           ("IP", info.get("IP4.ADDRESS", "--"), IP_VALUE_SIZE),
+                           ("Signal", "--" if signal_pct is None else f"{signal_pct}%")],
+                       top=28, step=17)
 
     def draw_reboot(self, d, now):
         f = self.f
@@ -756,9 +845,8 @@ class UI:
         if self.rebooting:
             text(d, 40, 42, "Rebooting...", f.status)
         else:
-            text(d, 40, 32, "Hold center", f.small)
-            text(d, 40, 44, "for 3 s", f.hint)
-            text(d, 40, 59, "Back: cancel", f.label)
+            text(d, 40, 36, "Hold center", f.small)
+            text(d, 40, 52, "for 3 s", f.hint)
 
 
 # --- main loop -------------------------------------------------------------
@@ -771,8 +859,10 @@ def dump(frame):
 
 
 def reboot():
+    # In its own session, so systemd does not wait for it as part of this
+    # service while it is busy running the shutdown transaction.
     try:
-        subprocess.Popen(["systemctl", "reboot"])
+        subprocess.Popen(["systemctl", "reboot"], start_new_session=True)
     except OSError as e:
         print(f"jethub-oled: cannot reboot: {e}", file=sys.stderr)
 
