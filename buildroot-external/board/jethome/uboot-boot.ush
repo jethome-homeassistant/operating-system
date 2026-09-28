@@ -34,8 +34,8 @@ if test -n "${serial}"; then setenv bootargs_hassos "${bootargs_hassos} serial=$
 if test -n "${usid}"; then setenv bootargs_hassos "${bootargs_hassos} usid=${usid}"; fi
 
 # JHaOS system A/B
-setenv bootargs_a "root=PARTUUID=48617373-06 ro rootwait"
-setenv bootargs_b "root=PARTUUID=48617373-08 ro rootwait"
+setenv bootargs_a "root=PARTUUID=48617373-06 rootfstype=erofs ro rootwait"
+setenv bootargs_b "root=PARTUUID=48617373-08 rootfstype=erofs ro rootwait"
 
 # Load environment from haos-config.txt
 if test -e ${devtype} ${devnum}:1 haos-config.txt; then

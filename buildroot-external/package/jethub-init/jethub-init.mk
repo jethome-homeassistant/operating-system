@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-JETHUB_INIT_VERSION = 1.4.0
+JETHUB_INIT_VERSION = 1.4.1
 JETHUB_INIT_SOURCE = jethub-init-haos_$(JETHUB_INIT_VERSION).tar.gz
 JETHUB_INIT_SITE = https://github.com/jethome-iot/jethub-init/releases/download/v$(JETHUB_INIT_VERSION)
 JETHUB_INIT_LICENSE = PROPRIETARY
