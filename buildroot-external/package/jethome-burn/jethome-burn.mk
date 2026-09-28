@@ -5,7 +5,7 @@
 #
 ################################################################################
 
-JETHOME_BURN_VERSION = 5277003e45951f13765e068cc045cb4a4cc59ba2
+JETHOME_BURN_VERSION = e7e00c55a375ab168ac4d12a0e12ff59e41322fc
 JETHOME_BURN_SITE = https://github.com/jethome-iot/jethome-tools
 JETHOME_BURN_SITE_METHOD = git
 JETHOME_BURN_INSTALL_IMAGES = YES
