@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-RTL8822CS_NEW_VERSION = 988c4408517be1a42fafad72abd722d31ac36c57
+RTL8822CS_NEW_VERSION = f4263fc6ecd11465bf60ce142aa76e2e85e2cbf3
 RTL8822CS_NEW_SITE = $(call github,jethome-iot,rtl88x2cs,$(RTL8822CS_NEW_VERSION))
 RTL8822CS_NEW_LICENSE = GPL-2.0
 
